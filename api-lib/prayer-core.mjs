@@ -192,8 +192,11 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
 
 // ----- ElevenLabs text-to-speech -----
 
-// Curated, verified-distinct ElevenLabs premade voices.
+// Curated voices. Francis and Robert are the hearts of Cristina's Heart;
+// the rest are verified-distinct ElevenLabs premade voices.
 export const VOICES = [
+  { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "Cristina's Heart founder" },
+  { voice_id: "lvGaKpCOBzSxF7x4y3Iv", name: "Robert", gender: "Male", tone: "In loving memory" },
   { voice_id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", tone: "Soft & warm" },
   { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", gender: "Female", tone: "Calm narration" },
   { voice_id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", gender: "Female", tone: "Warm & friendly" },
@@ -201,6 +204,53 @@ export const VOICES = [
   { voice_id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "Male", tone: "Gentle & wise" },
   { voice_id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", tone: "Clear & sincere" },
 ];
+
+// Voices you create in your ElevenLabs account (Voice Design, cloning, or
+// added from the Voice Library) appear in the app automatically: custom
+// voices are listed first, followed by the curated premade set.
+let voiceCache = { at: 0, voices: null };
+
+export async function getVoices() {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) return VOICES;
+
+  // Cache for 5 minutes per warm function instance
+  if (voiceCache.voices && Date.now() - voiceCache.at < 5 * 60 * 1000) {
+    return voiceCache.voices;
+  }
+
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
+      headers: { "xi-api-key": apiKey },
+    });
+    if (!response.ok) return VOICES;
+    const data = await response.json();
+    if (!Array.isArray(data.voices)) return VOICES;
+
+    const curatedIds = new Set(VOICES.map((v) => v.voice_id));
+    const custom = data.voices
+      .filter(
+        (v) =>
+          v.voice_id &&
+          v.name &&
+          v.category &&
+          v.category !== "premade" &&
+          !curatedIds.has(v.voice_id) // don't duplicate pinned voices
+      )
+      .map((v) => ({
+        voice_id: v.voice_id,
+        name: v.name,
+        gender: v.labels?.gender || "",
+        tone: v.labels?.description || v.description?.slice(0, 40) || "Your custom voice",
+      }));
+
+    const merged = [...VOICES.slice(0, 2), ...custom, ...VOICES.slice(2)];
+    voiceCache = { at: Date.now(), voices: merged };
+    return merged;
+  } catch {
+    return VOICES;
+  }
+}
 
 /**
  * Generate speech audio via ElevenLabs. Returns a Buffer of MP3 audio.
@@ -215,9 +265,17 @@ export async function generateSpeech({ text, voiceId }) {
     throw err;
   }
 
-  const chosen = VOICES.find((v) => v.voice_id === voiceId) ? voiceId : VOICES[0].voice_id;
+  // Accept any plausible ElevenLabs voice ID (including custom voices);
+  // fall back to the first curated voice otherwise.
+  const chosen = /^[A-Za-z0-9]{10,40}$/.test(voiceId || "") ? voiceId : VOICES[0].voice_id;
 
-  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${chosen}`, {
+  // Optional higher-bitrate audio, e.g. set ELEVENLABS_FORMAT=mp3_44100_192
+  // (192 kbps requires ElevenLabs Creator plan or above).
+  const format = process.env.ELEVENLABS_FORMAT
+    ? `?output_format=${encodeURIComponent(process.env.ELEVENLABS_FORMAT)}`
+    : "";
+
+  const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${chosen}${format}`, {
     method: "POST",
     headers: {
       Accept: "audio/mpeg",
@@ -226,7 +284,9 @@ export async function generateSpeech({ text, voiceId }) {
     },
     body: JSON.stringify({
       text,
-      model_id: "eleven_multilingual_v2",
+      // Eleven v3: most expressive multilingual model — best for cloned voices.
+      // Override with the ELEVENLABS_MODEL env var if ElevenLabs renames it.
+      model_id: process.env.ELEVENLABS_MODEL || "eleven_v3",
       voice_settings: {
         stability: 0.5,
         similarity_boost: 0.7,

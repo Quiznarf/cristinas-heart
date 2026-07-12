@@ -1,8 +1,8 @@
-import { generateSpeech, VOICES } from "../../api-lib/prayer-core.mjs";
+import { generateSpeech, getVoices } from "../../api-lib/prayer-core.mjs";
 
 export default async (req) => {
   if (req.method === "GET") {
-    return Response.json({ voices: VOICES });
+    return Response.json({ voices: await getVoices() });
   }
   if (req.method !== "POST") {
     return Response.json({ message: "Method not allowed" }, { status: 405 });

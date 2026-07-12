@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import {
   generatePrayer,
   generateSpeech,
-  VOICES,
+  getVoices,
   listCandles,
   addCandle,
 } from "../api-lib/prayer-core.mjs";
@@ -33,7 +33,7 @@ app.post("/api/prayer", async (req, res) => {
   }
 });
 
-app.get("/api/tts", (_req, res) => res.json({ voices: VOICES }));
+app.get("/api/tts", async (_req, res) => res.json({ voices: await getVoices() }));
 
 app.post("/api/tts", async (req, res) => {
   try {

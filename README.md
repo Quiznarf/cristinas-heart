@@ -8,7 +8,7 @@ Prayer Journal.
 ## Features
 
 - **Prayer generation** — DeepSeek (default) or OpenAI, with culturally-tailored prompts per faith tradition and language
-- **Voice playback** — ElevenLabs `eleven_multilingual_v2` (natural speech in every supported language), with a curated set of six distinct voices and automatic browser-voice fallback
+- **Voice playback** — ElevenLabs `eleven_v3` (most expressive multilingual model), with a curated set of six distinct voices and automatic browser-voice fallback
 - **Prayer cards** — downloadable, beautifully designed cards in four themes
 - **Candle Wall** — a world map where anyone can light a candle with an optional name and intention (stored in Postgres — Supabase, Neon, or any provider)
 - **Prayer Journal** — every prayer is saved privately on the visitor's own device
