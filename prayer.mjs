@@ -194,9 +194,10 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
 
 // The voices of Cristina's Heart. This list is EXPLICIT — only voices
 // added here appear in the app. (No automatic account syncing.)
+// To restore Francis, add back:
+//   { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "" },
 export const VOICES = [
-  { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "Cristina's Heart founder" },
-  { voice_id: "lvGaKpCOBzSxF7x4y3Iv", name: "Robert", gender: "Male", tone: "In loving memory" },
+  { voice_id: "lvGaKpCOBzSxF7x4y3Iv", name: "Robert", gender: "Male", tone: "" },
 ];
 
 export async function getVoices() {
@@ -238,10 +239,13 @@ export async function generateSpeech({ text, voiceId }) {
       // Eleven v3: most expressive multilingual model — best for cloned voices.
       // Override with the ELEVENLABS_MODEL env var if ElevenLabs renames it.
       model_id: process.env.ELEVENLABS_MODEL || "eleven_v3",
+      // Settings tuned for cloned-voice fidelity: no style exaggeration
+      // (style drift is what causes accent shifts) and high similarity,
+      // so the voice sounds exactly as it does in ElevenLabs itself.
       voice_settings: {
         stability: 0.5,
-        similarity_boost: 0.7,
-        style: 0.2,
+        similarity_boost: 0.9,
+        style: 0.0,
         use_speaker_boost: true,
       },
     }),
