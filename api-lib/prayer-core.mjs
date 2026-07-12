@@ -55,6 +55,7 @@ export const faithPrompts = {
 };
 
 export const languageInstructions = {
+  "original": "in exactly the same language the request is written in — mirror the person's own language",
   "english": "in English",
   "spanish": "in Spanish (Español)",
   "french": "in French (Français)",
@@ -227,6 +228,16 @@ export async function getVoices() {
   return VOICES; // explicit list only — see VOICE POLICY above
 }
 
+function envNum(name, fallback) {
+  const n = parseFloat(process.env[name] ?? "");
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback;
+}
+
+function envRange(name, fallback, min, max) {
+  const n = parseFloat(process.env[name] ?? "");
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : fallback;
+}
+
 /**
  * Generate speech audio via ElevenLabs. Returns a Buffer of MP3 audio.
  * Uses eleven_multilingual_v2 so prayers in all 44 languages sound natural
@@ -259,16 +270,23 @@ export async function generateSpeech({ text, voiceId }) {
     },
     body: JSON.stringify({
       text,
-      // Eleven v3: most expressive multilingual model — best for cloned voices.
-      // Override with the ELEVENLABS_MODEL env var if ElevenLabs renames it.
-      model_id: process.env.ELEVENLABS_MODEL || "eleven_v3",
-      // Settings tuned for cloned-voice fidelity: no style exaggeration
-      // (style drift is what causes accent shifts) and high similarity,
-      // so the voice sounds exactly as it does in ElevenLabs itself.
+      // eleven_multilingual_v2: the model Robert's clone was built to sound
+      // natural on — best fidelity to the original voice. To experiment with
+      // other models (e.g. eleven_v3), set the ELEVENLABS_MODEL env var in
+      // Netlify — no code change needed.
+      model_id: process.env.ELEVENLABS_MODEL || "eleven_multilingual_v2",
+      // Robert's LOCKED-IN settings (matched to his ElevenLabs profile,
+      // confirmed by Francis on 2026-07-12):
+      //   Model: eleven_multilingual_v2 · Speed 0.81 · Stability 50%
+      //   Similarity 75% · Style exaggeration: none
+      // Tunable without code changes via Netlify env vars:
+      //   ELEVENLABS_STABILITY / _SIMILARITY / _STYLE (0.0–1.0),
+      //   ELEVENLABS_SPEED (0.7–1.2), then Trigger deploy.
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.9,
-        style: 0.0,
+        stability: envNum("ELEVENLABS_STABILITY", 0.5),
+        similarity_boost: envNum("ELEVENLABS_SIMILARITY", 0.75),
+        style: envNum("ELEVENLABS_STYLE", 0.0),
+        speed: envRange("ELEVENLABS_SPEED", 0.81, 0.7, 1.2),
         use_speaker_boost: true,
       },
     }),

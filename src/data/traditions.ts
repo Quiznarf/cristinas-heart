@@ -31,6 +31,7 @@ export interface Language {
 }
 
 export const LANGUAGES: Language[] = [
+  { id: "original", label: "Same as my request", native: "✨ Original" },
   { id: "english", label: "English", native: "English" },
   { id: "spanish", label: "Spanish", native: "Español" },
   { id: "french", label: "French", native: "Français" },

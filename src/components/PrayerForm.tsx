@@ -24,7 +24,7 @@ interface Props {
 }
 
 export default function PrayerForm({ onSubmit, error, initial }: Props) {
-  const [language, setLanguage] = useState(initial?.language ?? "english");
+  const [language, setLanguage] = useState(initial?.language ?? "original");
   const [faith, setFaith] = useState(initial?.faith ?? "non-denominational");
   const [request, setRequest] = useState(initial?.request ?? "");
   const [length, setLength] = useState<PrayerLength>(initial?.length ?? "medium");

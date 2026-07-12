@@ -30,6 +30,7 @@ export default function PrayerResult({ prayer, values, onPrayAgain, onLightCandl
   const [voiceId, setVoiceId] = useState<string>("");
   const [audioState, setAudioState] = useState<AudioState>("idle");
   const [audioError, setAudioError] = useState<string | null>(null);
+  const [audioNote, setAudioNote] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showCard, setShowCard] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,10 +64,14 @@ export default function PrayerResult({ prayer, values, onPrayAgain, onLightCandl
     utter.onerror = () => setAudioState("idle");
     synth.speak(utter);
     setAudioState("browser-speaking");
+    // Make the fallback VISIBLE so a failed ElevenLabs call can never
+    // silently impersonate the real voice.
+    setAudioNote("⚠︎ Playing with your device's built-in voice — the selected voice is temporarily unavailable.");
   };
 
   const handleListen = async () => {
     setAudioError(null);
+    setAudioNote(null);
 
     if (audioState === "playing") {
       audioRef.current?.pause();
@@ -197,6 +202,7 @@ export default function PrayerResult({ prayer, values, onPrayAgain, onLightCandl
             </div>
           </div>
           {audioError && <p className="mt-3 text-sm text-rose">{audioError}</p>}
+          {audioNote && <p className="mt-3 text-sm font-semibold text-gold-deep">{audioNote}</p>}
         </div>
 
         {/* Actions */}
