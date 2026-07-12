@@ -70,6 +70,7 @@ export async function requestPrayer(input: {
   faith: string;
   language: string;
   request: string;
+  length: "short" | "medium" | "long";
 }): Promise<PrayerResponse> {
   try {
     const res = await fetch("/api/prayer", {

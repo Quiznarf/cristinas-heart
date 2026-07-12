@@ -170,7 +170,7 @@ export default function PrayerResult({ prayer, values, onPrayAgain, onLightCandl
                 >
                   {voices.map((v) => (
                     <option key={v.voice_id} value={v.voice_id}>
-                      {v.name} — {v.tone}
+                      {v.name}
                     </option>
                   ))}
                 </select>

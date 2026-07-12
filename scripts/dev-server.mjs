@@ -17,7 +17,7 @@ app.use(express.json({ limit: "1mb" }));
 
 app.post("/api/prayer", async (req, res) => {
   try {
-    const { faith, language, request } = req.body || {};
+    const { faith, language, request, length } = req.body || {};
     if (!request || String(request).trim().length < 3) {
       return res.status(400).json({ message: "Please share what's in your heart so we can pray with you." });
     }
@@ -25,6 +25,7 @@ app.post("/api/prayer", async (req, res) => {
       faith: String(faith || "non-denominational"),
       language: String(language || "english"),
       request: String(request).trim().slice(0, 2000),
+      length: ["short", "medium", "long"].includes(length) ? length : "medium",
     });
     res.json(result);
   } catch (err) {

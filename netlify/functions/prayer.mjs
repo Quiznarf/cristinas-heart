@@ -6,7 +6,7 @@ export default async (req) => {
   }
   try {
     const body = await req.json();
-    const { faith, language, request } = body || {};
+    const { faith, language, request, length } = body || {};
     if (!request || typeof request !== "string" || request.trim().length < 3) {
       return Response.json(
         { message: "Please share what's in your heart so we can pray with you." },
@@ -17,6 +17,7 @@ export default async (req) => {
       faith: String(faith || "non-denominational"),
       language: String(language || "english"),
       request: request.trim().slice(0, 2000),
+      length: ["short", "medium", "long"].includes(length) ? length : "medium",
     });
     return Response.json(result);
   } catch (error) {

@@ -1,12 +1,21 @@
 import { useState } from "react";
-import { Feather, Globe, Heart } from "lucide-react";
+import { AlignLeft, Feather, Globe, Heart } from "lucide-react";
 import { FAITH_GROUPS, FAITH_TRADITIONS, LANGUAGES } from "../data/traditions";
+
+export type PrayerLength = "short" | "medium" | "long";
 
 export interface PrayerFormValues {
   faith: string;
   language: string;
   request: string;
+  length: PrayerLength;
 }
+
+const LENGTH_OPTIONS: { id: PrayerLength; label: string; hint: string }[] = [
+  { id: "short", label: "Short", hint: "A few heartfelt lines" },
+  { id: "medium", label: "Medium", hint: "A full, warm prayer" },
+  { id: "long", label: "Long", hint: "Rich and complete" },
+];
 
 interface Props {
   onSubmit: (values: PrayerFormValues) => void;
@@ -18,6 +27,7 @@ export default function PrayerForm({ onSubmit, error, initial }: Props) {
   const [language, setLanguage] = useState(initial?.language ?? "english");
   const [faith, setFaith] = useState(initial?.faith ?? "non-denominational");
   const [request, setRequest] = useState(initial?.request ?? "");
+  const [length, setLength] = useState<PrayerLength>(initial?.length ?? "medium");
   const [touched, setTouched] = useState(false);
 
   const valid = request.trim().length >= 3;
@@ -26,7 +36,7 @@ export default function PrayerForm({ onSubmit, error, initial }: Props) {
     e.preventDefault();
     setTouched(true);
     if (!valid) return;
-    onSubmit({ faith, language, request: request.trim() });
+    onSubmit({ faith, language, request: request.trim(), length });
   };
 
   return (
@@ -78,6 +88,40 @@ export default function PrayerForm({ onSubmit, error, initial }: Props) {
             ))}
           </select>
         </label>
+      </div>
+
+      <div className="mt-5">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+          <AlignLeft className="h-4 w-4 text-gold-deep" /> Prayer length
+        </span>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {LENGTH_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setLength(opt.id)}
+              className={`rounded-2xl border px-3 py-2.5 text-center transition-all ${
+                length === opt.id
+                  ? "border-transparent text-white shadow-cta"
+                  : "border-ink/10 bg-white text-ink hover:border-gold"
+              }`}
+              style={
+                length === opt.id
+                  ? { background: "linear-gradient(135deg, #e8b64c 0%, #e06a8a 55%, #8f7ae8 100%)" }
+                  : undefined
+              }
+            >
+              <span className="block text-sm font-bold">{opt.label}</span>
+              <span
+                className={`block text-[11px] ${
+                  length === opt.id ? "text-white/85" : "text-ink-soft"
+                }`}
+              >
+                {opt.hint}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <label className="mt-5 block">

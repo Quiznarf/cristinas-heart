@@ -138,13 +138,31 @@ function resolveLlm() {
   return null;
 }
 
+// Prayer length options
+export const PRAYER_LENGTHS = {
+  short: {
+    instruction: "very brief and focused — 2 to 3 sentences, around 50 words",
+    maxTokens: 250,
+  },
+  medium: {
+    instruction: "moderate length — 4 to 6 sentences, around 120 words",
+    maxTokens: 450,
+  },
+  long: {
+    instruction:
+      "a fuller prayer — 8 to 10 sentences, around 220 words. Rich and complete, but never rambling",
+    maxTokens: 800,
+  },
+};
+
 /**
  * Generate a prayer. Uses DeepSeek (or OpenAI) when an API key is configured;
  * otherwise returns a heartfelt built-in prayer (demo mode).
  */
-export async function generatePrayer({ faith, language, request }) {
+export async function generatePrayer({ faith, language, request, length }) {
   const faithPrompt = faithPrompts[faith] || faithPrompts["non-denominational"];
   const languageInstruction = languageInstructions[language] || "in English";
+  const lengthSpec = PRAYER_LENGTHS[length] || PRAYER_LENGTHS.medium;
 
   const llm = resolveLlm();
   if (!llm) {
@@ -155,7 +173,7 @@ export async function generatePrayer({ faith, language, request }) {
 - Respectful and reverent
 - Culturally appropriate for the specified faith tradition
 - Comforting and uplifting
-- Not overly long (3-6 sentences)
+- ${lengthSpec.instruction}
 - Authentic to the tradition while being accessible
 
 Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: { "prayer": "your prayer text here" }`;
@@ -173,7 +191,7 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
         { role: "user", content: `Please create a prayer for this request: "${request}"` },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
+      max_tokens: lengthSpec.maxTokens,
       temperature: 0.7,
     }),
   });
@@ -192,64 +210,21 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
 
 // ----- ElevenLabs text-to-speech -----
 
-// Curated voices. Francis and Robert are the hearts of Cristina's Heart;
-// the rest are verified-distinct ElevenLabs premade voices.
+// ============================================================================
+// VOICE POLICY (do not change without understanding this):
+// The app NEVER queries the ElevenLabs account for voice lists. Every voice
+// shown to visitors is hardcoded in the VOICES array below — nothing else can
+// ever appear. The ONLY ElevenLabs API call in this entire codebase is the
+// text-to-speech request for the specific voice_id a visitor selected.
+// ============================================================================
+// To restore Francis, add back:
+//   { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "" },
 export const VOICES = [
-  { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "Cristina's Heart founder" },
-  { voice_id: "lvGaKpCOBzSxF7x4y3Iv", name: "Robert", gender: "Male", tone: "In loving memory" },
-  { voice_id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", gender: "Female", tone: "Soft & warm" },
-  { voice_id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", gender: "Female", tone: "Calm narration" },
-  { voice_id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", gender: "Female", tone: "Warm & friendly" },
-  { voice_id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel", gender: "Male", tone: "Deep & steady" },
-  { voice_id: "JBFqnCBsd6RMkjVDRZzb", name: "George", gender: "Male", tone: "Gentle & wise" },
-  { voice_id: "TX3LPaxmHKxFdv7VOQHJ", name: "Liam", gender: "Male", tone: "Clear & sincere" },
+  { voice_id: "lvGaKpCOBzSxF7x4y3Iv", name: "Robert", gender: "Male", tone: "" },
 ];
 
-// Voices you create in your ElevenLabs account (Voice Design, cloning, or
-// added from the Voice Library) appear in the app automatically: custom
-// voices are listed first, followed by the curated premade set.
-let voiceCache = { at: 0, voices: null };
-
 export async function getVoices() {
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) return VOICES;
-
-  // Cache for 5 minutes per warm function instance
-  if (voiceCache.voices && Date.now() - voiceCache.at < 5 * 60 * 1000) {
-    return voiceCache.voices;
-  }
-
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: { "xi-api-key": apiKey },
-    });
-    if (!response.ok) return VOICES;
-    const data = await response.json();
-    if (!Array.isArray(data.voices)) return VOICES;
-
-    const curatedIds = new Set(VOICES.map((v) => v.voice_id));
-    const custom = data.voices
-      .filter(
-        (v) =>
-          v.voice_id &&
-          v.name &&
-          v.category &&
-          v.category !== "premade" &&
-          !curatedIds.has(v.voice_id) // don't duplicate pinned voices
-      )
-      .map((v) => ({
-        voice_id: v.voice_id,
-        name: v.name,
-        gender: v.labels?.gender || "",
-        tone: v.labels?.description || v.description?.slice(0, 40) || "Your custom voice",
-      }));
-
-    const merged = [...VOICES.slice(0, 2), ...custom, ...VOICES.slice(2)];
-    voiceCache = { at: Date.now(), voices: merged };
-    return merged;
-  } catch {
-    return VOICES;
-  }
+  return VOICES; // explicit list only — see VOICE POLICY above
 }
 
 /**
@@ -287,10 +262,13 @@ export async function generateSpeech({ text, voiceId }) {
       // Eleven v3: most expressive multilingual model — best for cloned voices.
       // Override with the ELEVENLABS_MODEL env var if ElevenLabs renames it.
       model_id: process.env.ELEVENLABS_MODEL || "eleven_v3",
+      // Settings tuned for cloned-voice fidelity: no style exaggeration
+      // (style drift is what causes accent shifts) and high similarity,
+      // so the voice sounds exactly as it does in ElevenLabs itself.
       voice_settings: {
         stability: 0.5,
-        similarity_boost: 0.7,
-        style: 0.2,
+        similarity_boost: 0.9,
+        style: 0.0,
         use_speaker_boost: true,
       },
     }),
