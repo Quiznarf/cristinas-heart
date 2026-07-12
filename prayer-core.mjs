@@ -138,13 +138,31 @@ function resolveLlm() {
   return null;
 }
 
+// Prayer length options
+export const PRAYER_LENGTHS = {
+  short: {
+    instruction: "very brief and focused — 2 to 3 sentences, around 50 words",
+    maxTokens: 250,
+  },
+  medium: {
+    instruction: "moderate length — 4 to 6 sentences, around 120 words",
+    maxTokens: 450,
+  },
+  long: {
+    instruction:
+      "a fuller prayer — 8 to 10 sentences, around 220 words. Rich and complete, but never rambling",
+    maxTokens: 800,
+  },
+};
+
 /**
  * Generate a prayer. Uses DeepSeek (or OpenAI) when an API key is configured;
  * otherwise returns a heartfelt built-in prayer (demo mode).
  */
-export async function generatePrayer({ faith, language, request }) {
+export async function generatePrayer({ faith, language, request, length }) {
   const faithPrompt = faithPrompts[faith] || faithPrompts["non-denominational"];
   const languageInstruction = languageInstructions[language] || "in English";
+  const lengthSpec = PRAYER_LENGTHS[length] || PRAYER_LENGTHS.medium;
 
   const llm = resolveLlm();
   if (!llm) {
@@ -155,7 +173,7 @@ export async function generatePrayer({ faith, language, request }) {
 - Respectful and reverent
 - Culturally appropriate for the specified faith tradition
 - Comforting and uplifting
-- Not overly long (3-6 sentences)
+- ${lengthSpec.instruction}
 - Authentic to the tradition while being accessible
 
 Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: { "prayer": "your prayer text here" }`;
@@ -173,7 +191,7 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
         { role: "user", content: `Please create a prayer for this request: "${request}"` },
       ],
       response_format: { type: "json_object" },
-      max_tokens: 500,
+      max_tokens: lengthSpec.maxTokens,
       temperature: 0.7,
     }),
   });
@@ -192,8 +210,13 @@ Create ${faithPrompt} ${languageInstruction}. Respond with JSON in this format: 
 
 // ----- ElevenLabs text-to-speech -----
 
-// The voices of Cristina's Heart. This list is EXPLICIT — only voices
-// added here appear in the app. (No automatic account syncing.)
+// ============================================================================
+// VOICE POLICY (do not change without understanding this):
+// The app NEVER queries the ElevenLabs account for voice lists. Every voice
+// shown to visitors is hardcoded in the VOICES array below — nothing else can
+// ever appear. The ONLY ElevenLabs API call in this entire codebase is the
+// text-to-speech request for the specific voice_id a visitor selected.
+// ============================================================================
 // To restore Francis, add back:
 //   { voice_id: "ePWzXLevzT59XKSkPntW", name: "Francis", gender: "Male", tone: "" },
 export const VOICES = [
@@ -201,7 +224,12 @@ export const VOICES = [
 ];
 
 export async function getVoices() {
-  return VOICES;
+  return VOICES; // explicit list only — see VOICE POLICY above
+}
+
+function envNum(name, fallback) {
+  const n = parseFloat(process.env[name] ?? "");
+  return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : fallback;
 }
 
 /**
@@ -239,13 +267,16 @@ export async function generateSpeech({ text, voiceId }) {
       // Eleven v3: most expressive multilingual model — best for cloned voices.
       // Override with the ELEVENLABS_MODEL env var if ElevenLabs renames it.
       model_id: process.env.ELEVENLABS_MODEL || "eleven_v3",
-      // Settings tuned for cloned-voice fidelity: no style exaggeration
-      // (style drift is what causes accent shifts) and high similarity,
-      // so the voice sounds exactly as it does in ElevenLabs itself.
+      // Settings tuned for cloned-voice fidelity. Defaults: stability 1.0
+      // ("Robust" on v3 — maximum faithfulness to the original recording,
+      // the strongest defense against accent drift), high similarity, and
+      // zero style exaggeration. Each can be tuned WITHOUT code changes via
+      // Netlify env vars: ELEVENLABS_STABILITY, ELEVENLABS_SIMILARITY,
+      // ELEVENLABS_STYLE (each 0.0–1.0), then Trigger deploy.
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.9,
-        style: 0.0,
+        stability: envNum("ELEVENLABS_STABILITY", 1.0),
+        similarity_boost: envNum("ELEVENLABS_SIMILARITY", 0.9),
+        style: envNum("ELEVENLABS_STYLE", 0.0),
         use_speaker_boost: true,
       },
     }),
